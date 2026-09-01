@@ -11,8 +11,18 @@ let package = Package(
     products: [
         .library(name: "PeekKit", targets: ["PeekKit"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/CoreOffice/CoreXLSX.git", from: "0.14.2"),
+    ],
     targets: [
-        .target(name: "PeekKit"),
-        .testTarget(name: "PeekKitTests", dependencies: ["PeekKit"]),
+        .target(
+            name: "PeekKit",
+            dependencies: [.product(name: "CoreXLSX", package: "CoreXLSX")]
+        ),
+        .testTarget(
+            name: "PeekKitTests",
+            dependencies: ["PeekKit"],
+            resources: [.copy("Fixtures")]
+        ),
     ]
 )

@@ -21,6 +21,9 @@ public enum PeekError: Error, Sendable, Equatable {
 
     /// A field was asked to be summarised as numbers and is not numeric.
     case notNumeric(String)
+
+    /// A worksheet was asked for that the workbook does not have.
+    case noSuchSheet(String, available: [String])
 }
 
 extension PeekError: LocalizedError {
@@ -35,6 +38,8 @@ extension PeekError: LocalizedError {
             "no field \"\(name)\". Available: \(available.prefix(12).joined(separator: ", "))"
         case .notNumeric(let name):
             "\"\(name)\" holds no numbers to summarise"
+        case .noSuchSheet(let name, let available):
+            "no sheet \"\(name)\". Available: \(available.joined(separator: ", "))"
         }
     }
 }

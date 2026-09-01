@@ -22,6 +22,12 @@ public enum DataFormat: String, Sendable, CaseIterable, Codable {
     /// Tab-separated.
     case tsv
 
+    /// An Excel workbook.
+    case xlsx
+
+    /// Whether the format is a binary container rather than text.
+    public var isBinary: Bool { self == .xlsx }
+
     /// The format a file extension implies, when it implies one.
     public static func inferred(fromExtension ext: String) -> DataFormat? {
         switch ext.lowercased() {
@@ -29,8 +35,22 @@ public enum DataFormat: String, Sendable, CaseIterable, Codable {
         case "ndjson", "jsonl": .ndjson
         case "csv": .csv
         case "tsv", "tab": .tsv
+        case "xlsx", "xlsm": .xlsx
         default: nil
         }
+    }
+
+    /// The format bytes look like, before any attempt to decode them as text.
+    ///
+    /// An `.xlsx` is a zip, so it begins `PK`. Checking that first matters:
+    /// decoding a workbook as UTF-8 either fails or produces mojibake, and
+    /// either way the useful answer is lost before the sniffer is reached.
+    public static func sniffed(data: Data) -> DataFormat? {
+        guard data.count >= 4 else { return nil }
+        let magic = [UInt8](data.prefix(4))
+        return magic[0] == 0x50 && magic[1] == 0x4B && (magic[2] == 0x03 || magic[2] == 0x05 || magic[2] == 0x07)
+            ? .xlsx
+            : nil
     }
 
     /// The format the content itself looks like.
