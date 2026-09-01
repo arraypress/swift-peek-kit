@@ -1,0 +1,69 @@
+//
+//  Shape.swift
+//  PeekKit
+//
+//  Created by David Sherlock on 2026.
+//
+
+import Foundation
+
+/// Describes what a dataset holds, field by field.
+public enum Shape {
+
+    /// The shape of every field, in the order the data presents them.
+    ///
+    /// - Parameters:
+    ///   - dataset: The data to describe.
+    ///   - examples: How many sample values to keep per field.
+    ///   - nested: Whether to describe fields inside nested objects too.
+    public static func of(_ dataset: Dataset, examples: Int = 3, nested: Bool = false) -> [FieldShape] {
+        let paths = nested ? dataset.paths() : dataset.fields
+        return paths.map { shape(of: $0, in: dataset, examples: examples) }
+    }
+
+    /// The shape of one field.
+    public static func shape(of path: String, in dataset: Dataset, examples: Int = 3) -> FieldShape {
+        let column = dataset.column(path)
+
+        var kindTally: [ValueKind: Int] = [:]
+        var distinct: Set<String> = []
+        var samples: [String] = []
+        var present = 0
+        var minimum: Double?
+        var maximum: Double?
+        var numericCount = 0
+
+        for value in column {
+            guard !value.isMissing else { continue }
+            present += 1
+            kindTally[value.kind, default: 0] += 1
+
+            let text = value.text
+            distinct.insert(text)
+            if samples.count < examples, !text.isEmpty, !samples.contains(text) {
+                samples.append(text)
+            }
+            if let number = value.numeric {
+                numericCount += 1
+                minimum = Swift.min(minimum ?? number, number)
+                maximum = Swift.max(maximum ?? number, number)
+            }
+        }
+
+        // Only call a field numeric when every present value is a number. One
+        // "n/a" in a column of prices means maths on it would quietly skip a
+        // row, and the shape should say so rather than imply it is safe.
+        let allNumeric = present > 0 && numericCount == present
+
+        return FieldShape(
+            name: path,
+            kinds: kindTally.sorted { ($0.value, $1.key.rawValue) > ($1.value, $0.key.rawValue) }.map(\.key),
+            present: present,
+            missing: column.count - present,
+            distinct: distinct.count,
+            examples: samples,
+            minimum: allNumeric ? minimum : nil,
+            maximum: allNumeric ? maximum : nil
+        )
+    }
+}
