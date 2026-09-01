@@ -183,3 +183,54 @@ final class SummaryTests: XCTestCase {
         XCTAssertThrowsError(try Comparison.diff(before: dataset, after: dataset, key: "missing"))
     }
 }
+
+extension SummaryTests {
+
+    func testCountingCanGroupMessagesByTheirCode() throws {
+        // Findings carry a variable tail: "hot: +6.74 dBFS" and "hot: +6.97
+        // dBFS" are one finding twice. Counted whole they produce a list as
+        // long as the data and tell you nothing.
+        let dataset = try DatasetReader.read("""
+            [{"issues":["hot: +6.74 dBFS","quiet: -50 dBFS"]},
+             {"issues":["hot: +6.97 dBFS"]},
+             {"issues":["mod wheel moves nothing (0.95x)"]},
+             {"issues":["mod wheel moves nothing (1.11x)"]}]
+            """)
+        XCTAssertEqual(try Statistics.counts(of: "issues", in: dataset).count, 5, "whole strings barely group")
+
+        let grouped = try Statistics.counts(of: "issues", in: dataset, truncatingAt: ":(")
+        XCTAssertEqual(grouped.map(\.value), ["hot", "mod wheel moves nothing", "quiet"])
+        XCTAssertEqual(grouped[0].count, 2)
+        XCTAssertEqual(grouped[1].count, 2)
+    }
+
+    func testTruncatingNeverProducesAnEmptyLabel() {
+        // A value that begins with the separator would otherwise tally under
+        // "", which is unreadable and merges unrelated rows.
+        XCTAssertEqual(Statistics.truncate(": leading", at: [":"]), ": leading")
+    }
+
+    func testBooleansAreNotOfferedAsNumericColumns() throws {
+        let dataset = try DatasetReader.read("[{\"ok\":true},{\"ok\":false}]")
+        XCTAssertFalse(Shape.shape(of: "ok", in: dataset).isNumeric, "a range of 0 … 1 beside \"boolean\" says nothing")
+        XCTAssertEqual(try Statistics.summary(of: "ok", in: dataset).mean, 0.5, "but asking directly still works")
+    }
+
+    func testDisplayRoundsWhereJSONKeepsPrecision() {
+        XCTAssertEqual(Value.number(0.6797419190406799).display, "0.679742")
+        XCTAssertEqual(Value.number(0.6797419190406799).text, "0.6797419190406799")
+        XCTAssertEqual(Value.number(42).display, "42", "an integer needs no decimal point")
+    }
+}
+
+extension SummaryTests {
+
+    func testADiffReportsRoundedValuesAndAnExactDelta() throws {
+        let before = try DatasetReader.read("[{\"id\":\"a\",\"v\":0.40611106157302856}]")
+        let after = try DatasetReader.read("[{\"id\":\"a\",\"v\":0.5655805468559265}]")
+        let change = try Comparison.diff(before: before, after: after, key: "id")[0].fields[0]
+        XCTAssertEqual(change.before, "0.406111")
+        XCTAssertEqual(change.after, "0.565581")
+        XCTAssertEqual(change.delta ?? 0, 0.15946948528289795, accuracy: 1e-12, "the movement stays exact")
+    }
+}

@@ -53,7 +53,14 @@ public enum Shape {
         // Only call a field numeric when every present value is a number. One
         // "n/a" in a column of prices means maths on it would quietly skip a
         // row, and the shape should say so rather than imply it is safe.
-        let allNumeric = present > 0 && numericCount == present
+        //
+        // Booleans are excluded even though they read as 0 and 1. A range of
+        // "0 … 1" beside a type of "boolean" tells the reader nothing, and
+        // auto-discovered statistics should not fill up with true/false
+        // columns. `stats --field ok` still summarises one on request, where
+        // the mean is the share that are true.
+        let onlyBooleans = kindTally[.boolean] == present
+        let allNumeric = present > 0 && numericCount == present && !onlyBooleans
 
         return FieldShape(
             name: path,

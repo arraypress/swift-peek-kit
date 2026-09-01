@@ -47,6 +47,17 @@ public enum Value: Sendable, Equatable {
         }
     }
 
+    /// The text of this, rounded to what a table can show.
+    ///
+    /// Full precision belongs in the JSON, which is the machine's copy. A
+    /// column of `0.6797419190406799` in a terminal is nine digits of noise
+    /// in front of the one thing being compared.
+    public var display: String {
+        guard case .number(let value) = self else { return text }
+        guard value.isFinite, value != value.rounded() else { return text }
+        return String(format: "%.6g", value)
+    }
+
     /// The text of this, for grouping and display.
     public var text: String {
         switch self {

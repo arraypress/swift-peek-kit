@@ -44,13 +44,28 @@ public enum Statistics {
     /// which is what "how often does this code appear" means. Shares are
     /// therefore taken against the row count and can exceed 1 in total, which
     /// is honest — the alternative is a percentage that hides multiples.
-    public static func counts(of path: String, in dataset: Dataset, limit: Int? = nil) throws -> [ValueCount] {
+    /// - Parameters:
+    ///   - path: The field or dotted path to tally.
+    ///   - dataset: The data.
+    ///   - limit: Keep only this many of the commonest values.
+    ///   - truncatingAt: Characters that end the part worth counting.
+    ///     Messages carry their variable half after a separator — `"hot:
+    ///     +6.74 dBFS"` and `"hot: +6.97 dBFS"` are one finding reported
+    ///     twice, and tallying them whole produces a list as long as the
+    ///     data. Cutting at `":("` groups them under `hot`.
+    public static func counts(
+        of path: String,
+        in dataset: Dataset,
+        limit: Int? = nil,
+        truncatingAt separators: String = ""
+    ) throws -> [ValueCount] {
         let column = try resolve(path, in: dataset)
+        let cutSet = Set(separators)
         var tally: [String: Int] = [:]
 
         for value in column {
             for leaf in flatten(value) {
-                tally[leaf, default: 0] += 1
+                tally[truncate(leaf, at: cutSet), default: 0] += 1
             }
         }
 
@@ -83,6 +98,14 @@ public enum Statistics {
         case .array(let items): items.flatMap(numbers(in:))
         default: value.numeric.map { [$0] } ?? []
         }
+    }
+
+    /// The part of a label before the first separator, trimmed.
+    static func truncate(_ text: String, at separators: Set<Character>) -> String {
+        guard !separators.isEmpty else { return text }
+        let head = text.prefix { !separators.contains($0) }
+        let trimmed = head.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? text : trimmed
     }
 
     /// Every countable leaf inside a value, as text.

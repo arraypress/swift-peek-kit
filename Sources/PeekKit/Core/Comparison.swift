@@ -73,7 +73,9 @@ public enum Comparison {
         if let x = a.numeric, let y = b.numeric {
             let delta = y - x
             guard abs(delta) > tolerance else { return nil }
-            return FieldChange(field: field, before: a.text, after: b.text, delta: delta)
+            // Rounded for reading; `delta` carries the exact movement, which
+            // is the number anyone actually wants from a diff.
+            return FieldChange(field: field, before: a.display, after: b.display, delta: delta)
         }
         guard a.text != b.text else { return nil }
         return FieldChange(field: field, before: a.text, after: b.text)
