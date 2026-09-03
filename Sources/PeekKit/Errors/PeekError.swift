@@ -24,6 +24,13 @@ public enum PeekError: Error, Sendable, Equatable {
 
     /// A worksheet was asked for that the workbook does not have.
     case noSuchSheet(String, available: [String])
+
+    /// A format this can read but cannot write.
+    ///
+    /// Reading a workbook is cheap; writing one means hand-assembling OOXML
+    /// for something callers rarely need, since every tool here already emits
+    /// CSV and every spreadsheet opens it.
+    case cannotWrite(String)
 }
 
 extension PeekError: LocalizedError {
@@ -38,6 +45,8 @@ extension PeekError: LocalizedError {
             "no field \"\(name)\". Available: \(available.prefix(12).joined(separator: ", "))"
         case .notNumeric(let name):
             "\"\(name)\" holds no numbers to summarise"
+        case .cannotWrite(let format):
+            "cannot write \(format) — read-only. Write csv, tsv, json or ndjson instead."
         case .noSuchSheet(let name, let available):
             "no sheet \"\(name)\". Available: \(available.joined(separator: ", "))"
         }
