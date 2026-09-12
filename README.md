@@ -59,3 +59,25 @@ differences that mean something.
 ## Licence
 
 MIT.
+
+## Sampling
+
+`Sampling.pick(from:count:strategy:seed:)` chooses rows that stand for a file rather than the
+rows that happen to be first.
+
+```swift
+Sampling.pick(from: dataset.rows, count: 5, strategy: .spread)
+Sampling.pick(from: dataset.rows, count: 5, strategy: .random, seed: 42)
+```
+
+**A head tells you about the head.** Data files are usually grouped, sorted or append-ordered,
+so the first rows are the least representative in the file. Asked for five rows of an
+87,921-row sample manifest, a head returns five rows from the same pack, genre and class — out
+of 164 packs, 20 genres and 53 classes.
+
+- `.spread` walks evenly from the first row to the last. Deterministic without a seed, and the
+  right choice for sorted data since you see both ends and a fair line between.
+- `.random` is reservoir sampling — one pass, memory proportional to the sample rather than the
+  data — and reproducible: the same seed over the same file gives the same rows, so a sample
+  can be quoted and checked by somebody else. It uses its own SplitMix64 because Swift's
+  `SystemRandomNumberGenerator` cannot be seeded, which would make `seed` a lie.
