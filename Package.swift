@@ -5,8 +5,12 @@ import PackageDescription
 
 let package = Package(
     name: "swift-peek-kit",
+    // macOS 14, not 26. Nothing here is gated on a recent framework — there is not one
+    // `@available` in the package — so the higher floor was costing every consumer
+    // compatibility in exchange for nothing. Verified by building and running all 82 tests
+    // against 14 before lowering it.
     platforms: [
-        .macOS(.v26)
+        .macOS(.v14)
     ],
     products: [
         .library(name: "PeekKit", targets: ["PeekKit"]),
