@@ -17,11 +17,17 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/CoreOffice/CoreXLSX.git", from: "0.14.2"),
+        .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
+        .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.5.0"),
     ],
     targets: [
         .target(
             name: "PeekKit",
-            dependencies: [.product(name: "CoreXLSX", package: "CoreXLSX")]
+            dependencies: [
+                .product(name: "CoreXLSX", package: "CoreXLSX"),
+                .product(name: "Yams", package: "Yams"),
+                .product(name: "TOMLKit", package: "TOMLKit"),
+            ]
         ),
         .testTarget(
             name: "PeekKitTests",

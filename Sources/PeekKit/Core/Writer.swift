@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Yams
 
 /// Writes a ``Dataset`` as CSV, TSV, JSON or NDJSON.
 ///
@@ -36,6 +37,8 @@ public enum Writer {
         case .tsv:    return delimited(dataset, columns: columns, separator: "\t")
         case .json:   return try json(dataset, columns: columns, pretty: true)
         case .ndjson: return try json(dataset, columns: columns, pretty: false)
+        case .yaml:   return try yaml(dataset, columns: columns)
+        case .toml:   throw PeekError.cannotWrite("toml")
         case .xlsx:   throw PeekError.cannotWrite("xlsx")
         }
     }
@@ -49,6 +52,50 @@ public enum Writer {
             throw PeekError.noSuchField(fields.joined(separator: ", "), available: dataset.fields)
         }
         return kept
+    }
+
+    // MARK: YAML
+
+    /// Rows as a YAML sequence of mappings.
+    ///
+    /// Safe in this direction, and measured: JSON to YAML and back was
+    /// lossless over every awkward case — `"NO"`, `"yes"`, `"22:22"`,
+    /// `"0777"`, emoji, escapes, empty containers and keys containing
+    /// spaces, colons and `#`. Yams quotes what needs quoting, so nothing
+    /// reads back as a boolean or a number that was not one.
+    ///
+    /// TOML is deliberately not written. Its top level is a table, so rows
+    /// would have to become an array-of-tables, and a caller wanting TOML
+    /// almost always wants a hand-shaped config rather than a dump of rows.
+    /// Reading it is the useful half.
+    private static func yaml(_ dataset: Dataset, columns: [String]) throws -> String {
+        let objects: [Any] = dataset.rows.map { row in
+            var out: [String: Any] = [:]
+            for column in columns {
+                guard let value = Dataset.value(at: column, in: row), !value.isMissing else { continue }
+                out[column] = native(value)
+            }
+            return out
+        }
+        do {
+            return try Yams.dump(object: objects)
+        } catch {
+            throw PeekError.cannotWrite("yaml: \(error.localizedDescription)")
+        }
+    }
+
+    /// Yams cannot represent Foundation's bridged types — `NSString`,
+    /// `NSNumber` and `NSNull` all throw "Failed to represent", including a
+    /// bare string. Everything has to be native Swift first.
+    private static func native(_ value: Value) -> Any {
+        switch value {
+        case .string(let text): text
+        case .number(let number): number == number.rounded() && abs(number) < 9e15 ? Int(number) : number
+        case .boolean(let flag): flag
+        case .null: NSNull()
+        case .array(let items): items.map(native)
+        case .object(let fields): fields.mapValues(native)
+        }
     }
 
     // MARK: Delimited

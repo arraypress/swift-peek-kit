@@ -23,6 +23,10 @@ public enum DataFormat: String, Sendable, CaseIterable, Codable {
     case tsv
 
     /// An Excel workbook.
+    case yaml
+
+    case toml
+
     case xlsx
 
     /// Whether the format is a binary container rather than text.
@@ -35,6 +39,8 @@ public enum DataFormat: String, Sendable, CaseIterable, Codable {
         case "ndjson", "jsonl": .ndjson
         case "csv": .csv
         case "tsv", "tab": .tsv
+        case "yaml", "yml": .yaml
+        case "toml": .toml
         case "xlsx", "xlsm": .xlsx
         default: nil
         }
@@ -70,6 +76,32 @@ public enum DataFormat: String, Sendable, CaseIterable, Codable {
                 return .ndjson
             }
             return .json
+        }
+
+        // A document separator is YAML and nothing else.
+        if trimmed.hasPrefix("---") { return .yaml }
+
+        // Past the comments, config files announce themselves. Both checks are
+        // deliberately narrow: a CSV header is the thing most likely to be
+        // caught by a loose rule, and a comma anywhere on the line means the
+        // line is far more likely to be one.
+        let meaningful = trimmed.split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty && !$0.hasPrefix("#") }
+
+        if let meaningful, !meaningful.contains(",") {
+            // `[table]` or `[[array of tables]]`, or `key = value`.
+            if meaningful.hasPrefix("["), meaningful.hasSuffix("]") { return .toml }
+            if meaningful.range(of: "^[A-Za-z_][A-Za-z0-9_.-]*\\s*=\\s*\\S", options: .regularExpression) != nil {
+                return .toml
+            }
+            // `key:` or `key: value` — a colon followed by a space or the end
+            // of the line. `12:30` and `https://x` do not match.
+            if meaningful.range(of: "^[A-Za-z_\"'][^:]*:(\\s|$)", options: .regularExpression) != nil {
+                return .yaml
+            }
+            // A bare sequence entry.
+            if meaningful.hasPrefix("- ") { return .yaml }
         }
 
         let firstLine = trimmed.prefix(while: { $0 != "\n" })

@@ -52,6 +52,12 @@ public enum DatasetReader {
         case .csv, .tsv:
             let (rows, fields) = try CSVReader.rows(from: text, delimiter: chosen == .tsv ? "\t" : ",")
             return Dataset(rows: rows, fields: fields, source: source, format: chosen)
+        case .yaml:
+            let (rows, fields) = try YAMLReader.rows(from: text)
+            return Dataset(rows: rows, fields: fields, source: source, format: .yaml)
+        case .toml:
+            let (rows, fields) = try TOMLReader.rows(from: text)
+            return Dataset(rows: rows, fields: fields, source: source, format: .toml)
         case .xlsx:
             // A workbook is a file, not a string; the caller has to hand over
             // bytes or a path.
