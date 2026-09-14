@@ -23,8 +23,15 @@ public enum Shape {
 
     /// The shape of one field.
     public static func shape(of path: String, in dataset: Dataset, examples: Int = 3) -> FieldShape {
-        let column = dataset.column(path)
+        describe(name: path, values: dataset.column(path), examples: examples)
+    }
 
+    /// The shape of a column of values, whatever produced them.
+    ///
+    /// Split out from `shape(of:in:)` so that callers who assemble a column
+    /// themselves — flattening one that reached through an array, say —
+    /// describe it by exactly the same rules rather than a second copy.
+    public static func describe(name: String, values: [Value], examples: Int = 3) -> FieldShape {
         var kindTally: [ValueKind: Int] = [:]
         var distinct: Set<String> = []
         var samples: [String] = []
@@ -33,7 +40,7 @@ public enum Shape {
         var maximum: Double?
         var numericCount = 0
 
-        for value in column {
+        for value in values {
             guard !value.isMissing else { continue }
             present += 1
             kindTally[value.kind, default: 0] += 1
@@ -63,10 +70,10 @@ public enum Shape {
         let allNumeric = present > 0 && numericCount == present && !onlyBooleans
 
         return FieldShape(
-            name: path,
+            name: name,
             kinds: kindTally.sorted { ($0.value, $1.key.rawValue) > ($1.value, $0.key.rawValue) }.map(\.key),
             present: present,
-            missing: column.count - present,
+            missing: values.count - present,
             distinct: distinct.count,
             examples: samples,
             minimum: allNumeric ? minimum : nil,
