@@ -38,7 +38,10 @@ extension PeekError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .unreadable(let detail):
-            "could not read this as JSON, NDJSON, CSV or TSV: \(detail)"
+            // Derived from the cases rather than written out: this line named
+            // four formats for as long as there were four, and went stale the
+            // moment YAML and TOML arrived.
+            "could not read this as \(DataFormat.allCases.map { $0.rawValue.uppercased() }.joined(separator: ", ")): \(detail)"
         case .empty(let source):
             "\(source) parsed but holds no rows"
         case .noSuchField(let name, let available):
