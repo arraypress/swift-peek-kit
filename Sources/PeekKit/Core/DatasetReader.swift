@@ -37,7 +37,12 @@ public enum DatasetReader {
         guard let text = String(data: data, encoding: .utf8) else {
             throw PeekError.unreadable("\(url.lastPathComponent) is not UTF-8 text")
         }
-        return try read(text, format: chosen ?? DataFormat.sniffed(text), source: url.lastPathComponent)
+        var resolved = chosen ?? DataFormat.sniffed(text)
+        // A `.json` name does not make one-object-per-line content a single document: read as
+        // JSON it kept only the first object (measured on `extract tables --json` output, three
+        // tables in, one row out). Unless the caller forced a format, the content decides.
+        if format == nil, resolved == .json, DataFormat.sniffed(text) == .ndjson { resolved = .ndjson }
+        return try read(text, format: resolved, source: url.lastPathComponent)
     }
 
     /// Reads text already in hand.

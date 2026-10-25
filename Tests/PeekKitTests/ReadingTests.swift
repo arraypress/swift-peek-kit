@@ -121,3 +121,30 @@ final class ReadingTests: XCTestCase {
         XCTAssertThrowsError(try DatasetReader.read("not data at all", format: .json))
     }
 }
+
+/// A `.json` file holding one object per line is NDJSON — the extension does not win.
+final class NamedNDJSONTests: XCTestCase {
+
+    private func file(_ name: String, _ text: String) throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("peek-\(UUID().uuidString)-\(name)")
+        try text.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    func testOneObjectPerLineInADotJSONFileIsEveryObject() throws {
+        let url = try file("tables.json", "{\"page\": 1, \"rows\": 27}\n{\"page\": 2, \"rows\": 30}\n{\"page\": 3, \"rows\": 16}\n")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let dataset = try DatasetReader.read(contentsOf: url)
+        XCTAssertEqual(dataset.rows.count, 3, "three objects in, three rows out — not just the first")
+        XCTAssertEqual(dataset.format, .ndjson)
+    }
+
+    func testARealJSONDocumentStaysJSONAndAForcedFormatIsObeyed() throws {
+        let pretty = try file("one.json", "{\n  \"page\": 1,\n  \"rows\": 27\n}\n")
+        defer { try? FileManager.default.removeItem(at: pretty) }
+        XCTAssertEqual(try DatasetReader.read(contentsOf: pretty).format, .json, "a pretty-printed object is one document")
+        let lines = try file("forced.json", "{\"a\": 1}\n{\"a\": 2}\n")
+        defer { try? FileManager.default.removeItem(at: lines) }
+        XCTAssertEqual(try DatasetReader.read(contentsOf: lines, format: .json).rows.count, 1, "--format json is the caller's call")
+    }
+}
